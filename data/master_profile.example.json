@@ -1,0 +1,8 @@
+{
+  "name": "Your Name",
+  "tech_stack_keywords": ["python", "django", "react"],
+  "employment_preferences": {
+    "accepting_full_time": true,
+    "accepting_part_time": false
+  }
+}

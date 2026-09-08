@@ -1,1 +1,8 @@
 requests>=2.31
+feedparser>=6.0
+beautifulsoup4>=4.12
+playwright>=1.40
+rapidfuzz>=3.6
+pytest>=8.0
+responses>=0.25
+python-dotenv>=1.0

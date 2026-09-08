@@ -1,0 +1,8 @@
+{
+  "we_work_remotely": {"enabled": true, "poll_interval_minutes": 30, "delay_range_seconds": [1, 4]},
+  "remoteok":         {"enabled": true, "poll_interval_minutes": 30, "delay_range_seconds": [1, 4]},
+  "remotive":         {"enabled": true, "poll_interval_minutes": 30, "delay_range_seconds": [1, 4]},
+  "nodesk":           {"enabled": true, "poll_interval_minutes": 60, "delay_range_seconds": [2, 6]},
+  "flexjobs":         {"enabled": true, "poll_interval_minutes": 60, "delay_range_seconds": [2, 6]},
+  "linkedin":         {"enabled": true, "poll_interval_minutes": 120, "delay_range_seconds": [5, 15]}
+}

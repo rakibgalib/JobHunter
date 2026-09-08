@@ -6,4 +6,6 @@ venv/
 data/app_database.db
 data/master_profile.json
 config/settings.json
+config/sources.json
+config/blacklist.json
 output/
