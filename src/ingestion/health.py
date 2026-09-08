@@ -39,6 +39,16 @@ def record_failure(conn: sqlite3.Connection, source: str) -> bool:
     return bool(disabled) and not was_disabled
 
 
+def clear_disabled(conn: sqlite3.Connection, source: str) -> None:
+    conn.execute(
+        """UPDATE source_health
+           SET consecutive_failures = 0, disabled = 0, disabled_at = NULL
+           WHERE source = ?""",
+        (source,),
+    )
+    conn.commit()
+
+
 def is_disabled(conn: sqlite3.Connection, source: str) -> bool:
     row = conn.execute(
         "SELECT disabled FROM source_health WHERE source = ?", (source,)

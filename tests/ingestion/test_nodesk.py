@@ -21,3 +21,12 @@ def test_parse_html_keeps_absolute_url_unchanged():
     adapter = NoDeskAdapter()
     postings = adapter.parse_html(FIXTURE_HTML)
     assert postings[1].url == "https://nodesk.co/remote-jobs/globex-designer"
+
+
+def test_parse_html_skips_card_with_missing_href():
+    adapter = NoDeskAdapter()
+    postings = adapter.parse_html(FIXTURE_HTML)
+    # Fixture contains 3 <a class="job-card"> elements; the third has no href
+    # and must be excluded rather than emitted with a degenerate shared id.
+    assert len(postings) == 2
+    assert all(p.title != "Missing Href Job" for p in postings)

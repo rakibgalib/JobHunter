@@ -22,8 +22,12 @@ class NoDeskAdapter(SourceAdapter):
         postings = []
         for card in soup.select("a.job-card"):
             href = card.get("href", "")
+            if not href:
+                continue
             url = href if href.startswith("http") else f"https://nodesk.co{href}"
             source_job_id = url.rstrip("/").rsplit("/", 1)[-1]
+            if not source_job_id:
+                continue
             title = card.select_one(".job-card__title")
             company = card.select_one(".job-card__company")
             location = card.select_one(".job-card__location")

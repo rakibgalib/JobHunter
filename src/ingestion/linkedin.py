@@ -31,6 +31,8 @@ class LinkedInAdapter(SourceAdapter):
         for card in soup.select(".base-card"):
             urn = card.get("data-entity-urn", "")
             job_id = urn.rsplit(":", 1)[-1] if urn else ""
+            if not job_id:
+                continue
             title = card.select_one(".base-search-card__title")
             company = card.select_one(".base-search-card__subtitle")
             location = card.select_one(".job-search-card__location")

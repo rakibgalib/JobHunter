@@ -1,4 +1,4 @@
-from src.ingestion.health import record_success, record_failure, is_disabled, should_poll
+from src.ingestion.health import record_success, record_failure, is_disabled, should_poll, clear_disabled
 
 
 def test_should_poll_true_for_never_polled_source(db_conn):
@@ -49,3 +49,26 @@ def test_record_failure_sixth_call_returns_false(db_conn):
         record_failure(db_conn, "wwr")
     sixth_call_result = record_failure(db_conn, "wwr")
     assert sixth_call_result is False
+
+
+def test_clear_disabled_reenables_a_disabled_source(db_conn):
+    for _ in range(5):
+        record_failure(db_conn, "wwr")
+    assert is_disabled(db_conn, "wwr") is True
+
+    clear_disabled(db_conn, "wwr")
+
+    assert is_disabled(db_conn, "wwr") is False
+    row = db_conn.execute(
+        "SELECT consecutive_failures, disabled_at FROM source_health WHERE source = ?", ("wwr",)
+    ).fetchone()
+    assert row["consecutive_failures"] == 0
+    assert row["disabled_at"] is None
+
+    # A subsequent failure should count from 1, not resume from 6.
+    disabled_again = record_failure(db_conn, "wwr")
+    assert disabled_again is False
+    row = db_conn.execute(
+        "SELECT consecutive_failures FROM source_health WHERE source = ?", ("wwr",)
+    ).fetchone()
+    assert row["consecutive_failures"] == 1

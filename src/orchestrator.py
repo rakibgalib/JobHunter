@@ -50,6 +50,16 @@ def process_job(conn: sqlite3.Connection, job: JobPosting, blacklist: dict,
     return "alerted"
 
 
+def retry_unalerted(conn: sqlite3.Connection, notifier) -> int:
+    rows = conn.execute("SELECT * FROM jobs WHERE status = 'new'").fetchall()
+    for row in rows:
+        notifier.send_job_alert(row["id"], row["title"], row["company"], row["location"],
+                                 row["employment_type"], row["source"], row["url"])
+        conn.execute("UPDATE jobs SET status = 'alerted' WHERE id = ?", (row["id"],))
+    conn.commit()
+    return len(rows)
+
+
 def resurface_snoozed(conn: sqlite3.Connection, notifier) -> int:
     cutoff = (datetime.utcnow() - timedelta(hours=SNOOZE_HOURS)).isoformat()
     rows = conn.execute(

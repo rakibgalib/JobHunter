@@ -16,3 +16,13 @@ def test_parse_html_extracts_teaser_fields():
     assert job.description == "Part-time Python role..."
     assert job.url == "https://www.flexjobs.com/remote-jobs/backend-engineer-acme"
     assert job.employment_type == "unknown"
+
+
+def test_parse_html_skips_teaser_with_missing_id_and_href():
+    adapter = FlexJobsAdapter()
+    postings = adapter.parse_html(FIXTURE_HTML)
+    # Fixture contains a second <li class="job-teaser"> with neither a
+    # data-job-id nor an href; it must be excluded rather than emitted with
+    # a degenerate shared id (the bare BASE_URL).
+    assert len(postings) == 1
+    assert all(p.title != "Missing Id Job" for p in postings)

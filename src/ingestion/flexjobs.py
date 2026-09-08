@@ -27,11 +27,14 @@ class FlexJobsAdapter(SourceAdapter):
             location = teaser.select_one(".job-teaser__location")
             snippet = teaser.select_one(".job-teaser__snippet")
             href = link.get("href", "") if link else ""
+            job_id = teaser.get("data-job-id", "") or href
+            if not job_id:
+                continue
             url = href if href.startswith("http") else f"{BASE_URL}{href}"
             postings.append(
                 JobPosting(
                     source=self.name,
-                    source_job_id=teaser.get("data-job-id", url),
+                    source_job_id=job_id,
                     title=link.get_text(strip=True) if link else "",
                     company=company.get_text(strip=True) if company else "Unknown",
                     description=snippet.get_text(strip=True) if snippet else "",

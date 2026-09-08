@@ -1,12 +1,14 @@
 import json
+import logging
 import random
+import sys
 import time
 import os
 
 from dotenv import load_dotenv
 
 from src.db import get_connection, init_db, DB_PATH
-from src.ingestion.health import record_success, record_failure, is_disabled, should_poll
+from src.ingestion.health import record_success, record_failure, is_disabled, should_poll, clear_disabled
 from src.ingestion.we_work_remotely import WeWorkRemotelyAdapter
 from src.ingestion.remoteok import RemoteOKAdapter
 from src.ingestion.remotive import RemotiveAdapter
@@ -15,7 +17,13 @@ from src.ingestion.flexjobs import FlexJobsAdapter
 from src.ingestion.linkedin import LinkedInAdapter
 from src.notifier.telegram import TelegramNotifier
 from src.notifier.callbacks import apply_callback
-from src.orchestrator import process_job, resurface_snoozed
+from src.orchestrator import process_job, resurface_snoozed, retry_unalerted
+
+logging.basicConfig(
+    filename="agent.log",
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(message)s",
+)
 
 DEFAULT_ADAPTER_CLASSES = {
     "we_work_remotely": WeWorkRemotelyAdapter,
@@ -51,26 +59,62 @@ def run_cycle(conn, sources_config: dict, blacklist: dict, profile: dict, notifi
         try:
             postings = adapter.fetch()
         except Exception as exc:
+            logging.error(f"fetch failed for {source}: {exc}")
             just_disabled = record_failure(conn, source)
             if just_disabled:
-                notifier.send_health_alert(source, str(exc))
+                try:
+                    notifier.send_health_alert(source, str(exc))
+                except Exception as alert_exc:
+                    logging.error(f"send_health_alert failed for {source}: {alert_exc}")
+            continue
+
+        if not postings:
+            just_disabled = record_failure(conn, source)
+            if just_disabled:
+                try:
+                    notifier.send_health_alert(source, "fetch returned no results")
+                except Exception as alert_exc:
+                    logging.error(f"send_health_alert failed for {source}: {alert_exc}")
+            results[source] = []
             continue
 
         record_success(conn, source)
-        results[source] = [
-            process_job(conn, job, blacklist, profile, notifier) for job in postings
-        ]
+        outcomes = []
+        for job in postings:
+            try:
+                outcomes.append(process_job(conn, job, blacklist, profile, notifier))
+            except Exception as exc:
+                logging.error(f"process_job failed for {source} job {job.source_job_id}: {exc}")
+        results[source] = outcomes
 
-    resurface_snoozed(conn, notifier)
+    try:
+        resurface_snoozed(conn, notifier)
+    except Exception as exc:
+        logging.error(f"resurface_snoozed failed: {exc}")
+
+    try:
+        retry_unalerted(conn, notifier)
+    except Exception as exc:
+        logging.error(f"retry_unalerted failed: {exc}")
 
     offset = callback_offset
     for update in notifier.get_callback_updates(offset):
+        offset = update["update_id"] + 1
         callback = update.get("callback_query")
         if callback:
-            apply_callback(conn, callback["data"])
-            offset = update["update_id"] + 1
+            try:
+                apply_callback(conn, callback["data"])
+            except Exception as exc:
+                logging.error(f"apply_callback failed for {callback['data']}: {exc}")
 
     return results, offset
+
+
+def enable_source(source: str) -> None:
+    conn = get_connection(DB_PATH)
+    init_db(conn)
+    clear_disabled(conn, source)
+    print(f"Source '{source}' re-enabled.")
 
 
 def main():
@@ -92,4 +136,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) >= 3 and sys.argv[1] == "--enable":
+        enable_source(sys.argv[2])
+    else:
+        main()
