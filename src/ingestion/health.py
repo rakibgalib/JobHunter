@@ -20,9 +20,10 @@ def record_success(conn: sqlite3.Connection, source: str) -> None:
 def record_failure(conn: sqlite3.Connection, source: str) -> bool:
     now = datetime.utcnow().isoformat()
     row = conn.execute(
-        "SELECT consecutive_failures FROM source_health WHERE source = ?", (source,)
+        "SELECT consecutive_failures, disabled FROM source_health WHERE source = ?", (source,)
     ).fetchone()
     failures = (row["consecutive_failures"] if row else 0) + 1
+    was_disabled = bool(row["disabled"]) if row else False
     disabled = 1 if failures >= FAILURE_THRESHOLD else 0
     conn.execute(
         """INSERT INTO source_health (source, consecutive_failures, last_failure_at, disabled, disabled_at)
@@ -35,7 +36,7 @@ def record_failure(conn: sqlite3.Connection, source: str) -> bool:
         (source, failures, now, disabled, now if disabled else None),
     )
     conn.commit()
-    return bool(disabled)
+    return bool(disabled) and not was_disabled
 
 
 def is_disabled(conn: sqlite3.Connection, source: str) -> bool:

@@ -41,3 +41,11 @@ def test_should_poll_true_after_interval_elapsed(db_conn):
     )
     db_conn.commit()
     assert should_poll(db_conn, "wwr", 30) is True
+
+
+def test_record_failure_sixth_call_returns_false(db_conn):
+    """Test that the 6th consecutive failure (after already disabled) returns False."""
+    for _ in range(5):
+        record_failure(db_conn, "wwr")
+    sixth_call_result = record_failure(db_conn, "wwr")
+    assert sixth_call_result is False
