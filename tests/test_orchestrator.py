@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from src.ingestion.models import JobPosting
 from src.orchestrator import process_job, resurface_snoozed, retry_unalerted
 
@@ -82,7 +82,7 @@ def test_drops_fuzzy_duplicate_from_other_source(db_conn):
 
 
 def test_resurface_snoozed_realerts_expired_jobs(db_conn):
-    old = (datetime.utcnow() - timedelta(hours=25)).isoformat()
+    old = (datetime.now(timezone.utc) - timedelta(hours=25)).isoformat()
     db_conn.execute(
         """INSERT INTO jobs (source, source_job_id, title, company, url,
                               location, employment_type, fetched_at, status)
@@ -100,7 +100,7 @@ def test_resurface_snoozed_realerts_expired_jobs(db_conn):
 
 
 def test_retry_unalerted_realerts_jobs_stuck_at_new(db_conn):
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(timezone.utc).isoformat()
     db_conn.execute(
         """INSERT INTO jobs (source, source_job_id, title, company, url,
                               location, employment_type, fetched_at, status)
@@ -127,7 +127,7 @@ def test_retry_unalerted_ignores_already_alerted_jobs(db_conn):
 
 
 def test_resurface_snoozed_ignores_jobs_within_window(db_conn):
-    recent = (datetime.utcnow() - timedelta(hours=1)).isoformat()
+    recent = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
     db_conn.execute(
         """INSERT INTO jobs (source, source_job_id, title, company, url,
                               location, employment_type, fetched_at, status)

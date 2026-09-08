@@ -1,5 +1,5 @@
 import sqlite3
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from src.filters.seen import has_seen, mark_seen
 from src.filters.blacklist import is_blacklisted
@@ -29,7 +29,7 @@ def process_job(conn: sqlite3.Connection, job: JobPosting, blacklist: dict,
     if is_duplicate(conn, job):
         return "fuzzy_duplicate"
 
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(timezone.utc).isoformat()
     cursor = conn.execute(
         """INSERT INTO jobs (source, source_job_id, title, company, description, url,
                               location, employment_type, salary_raw, posted_at, fetched_at, status)
@@ -61,7 +61,7 @@ def retry_unalerted(conn: sqlite3.Connection, notifier) -> int:
 
 
 def resurface_snoozed(conn: sqlite3.Connection, notifier) -> int:
-    cutoff = (datetime.utcnow() - timedelta(hours=SNOOZE_HOURS)).isoformat()
+    cutoff = (datetime.now(timezone.utc) - timedelta(hours=SNOOZE_HOURS)).isoformat()
     rows = conn.execute(
         "SELECT * FROM jobs WHERE status = 'snoozed' AND fetched_at <= ?", (cutoff,)
     ).fetchall()
@@ -70,7 +70,7 @@ def resurface_snoozed(conn: sqlite3.Connection, notifier) -> int:
                                  row["employment_type"], row["source"], row["url"])
         conn.execute(
             "UPDATE jobs SET status = 'alerted', fetched_at = ? WHERE id = ?",
-            (datetime.utcnow().isoformat(), row["id"]),
+            (datetime.now(timezone.utc).isoformat(), row["id"]),
         )
     conn.commit()
     return len(rows)

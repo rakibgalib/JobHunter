@@ -1,5 +1,5 @@
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 def apply_callback(conn: sqlite3.Connection, callback_data: str) -> str:
@@ -8,7 +8,7 @@ def apply_callback(conn: sqlite3.Connection, callback_data: str) -> str:
     if action == "snooze":
         conn.execute(
             "UPDATE jobs SET status = 'snoozed', fetched_at = ? WHERE id = ?",
-            (datetime.utcnow().isoformat(), job_id),
+            (datetime.now(timezone.utc).isoformat(), job_id),
         )
     elif action == "skip":
         conn.execute("UPDATE jobs SET status = 'skipped' WHERE id = ?", (job_id,))

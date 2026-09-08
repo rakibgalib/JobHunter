@@ -32,8 +32,8 @@ def test_should_poll_false_within_interval(db_conn):
 
 
 def test_should_poll_true_after_interval_elapsed(db_conn):
-    from datetime import datetime, timedelta
-    past = (datetime.utcnow() - timedelta(minutes=31)).isoformat()
+    from datetime import datetime, timedelta, timezone
+    past = (datetime.now(timezone.utc) - timedelta(minutes=31)).isoformat()
     db_conn.execute(
         """INSERT INTO source_health (source, consecutive_failures, last_success_at, disabled)
            VALUES ('wwr', 0, ?, 0)""",
