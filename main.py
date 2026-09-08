@@ -19,12 +19,6 @@ from src.notifier.telegram import TelegramNotifier
 from src.notifier.callbacks import apply_callback
 from src.orchestrator import process_job, resurface_snoozed, retry_unalerted
 
-logging.basicConfig(
-    filename="agent.log",
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(message)s",
-)
-
 DEFAULT_ADAPTER_CLASSES = {
     "we_work_remotely": WeWorkRemotelyAdapter,
     "remoteok": RemoteOKAdapter,
@@ -113,11 +107,22 @@ def run_cycle(conn, sources_config: dict, blacklist: dict, profile: dict, notifi
 def enable_source(source: str) -> None:
     conn = get_connection(DB_PATH)
     init_db(conn)
+    row = conn.execute(
+        "SELECT 1 FROM source_health WHERE source = ?", (source,)
+    ).fetchone()
+    if row is None:
+        print(f"Unknown source '{source}': no source_health record found.")
+        sys.exit(1)
     clear_disabled(conn, source)
     print(f"Source '{source}' re-enabled.")
 
 
 def main():
+    logging.basicConfig(
+        filename="agent.log",
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(message)s",
+    )
     load_dotenv()
     conn = get_connection(DB_PATH)
     init_db(conn)
