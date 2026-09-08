@@ -1,0 +1,271 @@
+Autonomous Job Ingestion & Application Agent
+Integrated System Architecture & Plan Document (v2)
+
+=================================================================
+1. What's New in v2
+=================================================================
+- Added more job sources: We Work Remotely, RemoteOK, Wellfound
+  (AngelList Talent), Indeed, Hacker News "Who's Hiring", and a
+  generic RSS/API connector for niche boards.
+- Added a Setup Wizard so first-time configuration doesn't require
+  hand-editing JSON files.
+- Dashboard upgraded from "read-only metrics" to a full control
+  panel: edit profile/blacklist, review/approve jobs, see analytics.
+- Added resilience features: source health monitoring, retry queue,
+  human-like rate limiting to avoid bans/captchas.
+- Added personalization: multiple CV "profiles" (e.g. Backend,
+  Full-Stack, Freelance) so the right base template is chosen
+  automatically per job type.
+- Added weekly digest report and richer Telegram interactions.
+
+=================================================================
+2. Updated End-to-End System Diagram
+=================================================================
+                                   [ INGESTION LAYER ]
+  +----------------+ +----------------+ +----------------+ +----------------+ +----------------+
+  | Telegram/      | | LinkedIn       | | We Work Remotely| | RemoteOK /     | | ATS Boards     |
+  | Discord Gigs   | | Scraper        | | Scraper         | | Wellfound /    | | (Greenhouse,   |
+  | Channels       | |                | |                 | | HN "Who's     | | Lever, Workday)|
+  |                | |                | |                 | | Hiring" / RSS  | |                |
+  +--------+-------+ +--------+-------+ +--------+--------+ +--------+-------+ +--------+-------+
+           |                  |                  |                   |                 |
+           +------------------+------------------+-------------------+-----------------+
+                                                  |
+                                                  v
+                                  [ SOURCE HEALTH & RATE LIMITER ]
+                             (per-source cooldown, human-like delays,
+                              auto-disable + alert on repeated failures)
+                                                  |
+                                                  v
+                                    [ DE-DUPLICATION & MATCHING ]
+                               +-----------------------------------+
+                               | SQLite Index & Deduplication      |
+                               | (job_id + fuzzy title/company)    |
+                               | Pre-Filter Engine (Tech Stacks)   |
+                               | Blacklist & Exclusion Filter      |
+                               +-----------------+-----------------+
+                                                 |
+                                                 v
+                                    [ CLAUDE INTELLIGENCE ]
+                               +-----------------------------------+
+                               | Claude Code CLI Execution         |
+                               |  1. Scores job fit (0-100%)       |
+                               |     + short "why this score" note |
+                               |  2. Picks best CV profile & tailors|
+                               |     Master CV for ATS             |
+                               |  3. Writes custom Cover Letter    |
+                               |  4. Solves Screening Questions    |
+                               +-----------------+-----------------+
+                                                 |
+                                                 v
+                                     [ COMPILER & NOTIFIER ]
+                               +-----------------------------------+
+                               | Typst / Pandoc -> Tailored PDF    |
+                               | Telegram Alert with action buttons|
+                               +-----------------+-----------------+
+                                                 |
+                                          ( User Approves )
+                                                 |
+                                                 v
+                                    [ AUTO-APPLY ENGINE ]
+                               +-----------------------------------+
+                               | Playwright / Headless Browser     |
+                               |  - Fills web application form     |
+                               |  - Uploads tailored PDF Resume    |
+                               |  - Submits Screening Answers      |
+                               |  - Falls back to "manual apply"   |
+                               |    task if form is unsupported    |
+                               +-----------------+-----------------+
+                                                 |
+                                                 v
+                                [ DASHBOARD & CONTROL PANEL ]
+                               +-----------------------------------+
+                               | SQLite / Streamlit Web UI         |
+                               |  - Setup Wizard (first run)       |
+                               |  - Edit profile & blacklist       |
+                               |  - Review/approve/skip jobs       |
+                               |  - Analytics per source           |
+                               |  - Syncs interviews to Google Cal |
+                               |  - Weekly email/Telegram digest   |
+                               +-----------------------------------+
+
+=================================================================
+3. Integrated System Component Design
+=================================================================
+
+Component 1: Ingestion & Blacklist Module (/ingestion)
+  Sources:
+    - Telegram & Discord channels (gigs/freelance leads)
+    - LinkedIn Jobs (full-time roles)
+    - We Work Remotely (remote-first roles)
+    - RemoteOK (remote-first roles)
+    - Wellfound / AngelList Talent (startup roles)
+    - Hacker News "Who's Hiring" monthly threads
+    - ATS boards directly: Greenhouse, Lever, Workday
+    - Generic RSS/JSON connector: lets the user add any board that
+      exposes a feed or public API without writing new code
+      (configured in config/sources.json).
+  Each source runs as an independent adapter implementing a common
+  interface (fetch() -> list[JobPosting]), so adding a new site is
+  a matter of dropping in one new adapter file, not touching the
+  pipeline.
+
+  Blacklist & Exclusion Rules: drops jobs matching configured
+  criteria before invoking Claude Code:
+    - Disallowed recruiter or agency names.
+    - Low budget ranges or unsupported locations.
+    - Disallowed keywords (e.g. "unpaid", "commission-only").
+    - Companies the user has already applied to and asked to mute.
+
+  Source Health & Rate Limiting:
+    - Randomized human-like delays between requests per source.
+    - If a source fails repeatedly (layout change, block, captcha),
+      it is auto-disabled and the user gets a single Telegram alert
+      instead of silent, repeated failures.
+
+Component 2: Claude Intelligence & Screening Engine (/intelligence)
+  Authentication: uses the local interactive browser session
+  (claude login via Google OAuth).
+  Master Profile: reads master_profile.json (single source of
+  truth for experience, skills, and preferences).
+  CV Profiles: the user can define more than one CV "flavor"
+  (e.g. Backend, Full-Stack, Freelance/Gigs) in
+  data/cv_profiles/*.json. Claude picks the closest-matching
+  profile per job before tailoring, instead of always starting
+  from one generic template.
+  CV Tailoring: re-orders bullet points, adjusts summaries, and
+  emphasizes relevant skills for ATS - never alters factual
+  employment history.
+  Fit Score Explanation: alongside the 0-100% score, Claude writes
+  a one-line reason (e.g. "Strong match: 4/5 required skills,
+  remote, salary in range") so the user can trust the score at a
+  glance in the Telegram alert.
+  ATS Screening Question Solver: answers application form
+  questions strictly from master_profile.json.
+
+Component 3: Document Compilation (/compiler)
+  Compiles the tailored Markdown CV (cv_job_id.md) into a
+  single-column, ATS-compliant PDF using Typst or Pandoc.
+  Keeps a version history per job so past tailored CVs can be
+  reopened from the dashboard.
+
+Component 4: Interactive Telegram Notifier (/notifier)
+  Sends an alert containing job details, fit score + reason,
+  proposal draft, and attached PDF resume.
+  Inline Action Buttons:
+    [ Auto-Apply Now ]     -> triggers Playwright auto-apply pipeline.
+    [ Get PDF & Draft ]    -> sends files for manual application.
+    [ Snooze 24h ]         -> re-surfaces the alert tomorrow.
+    [ Skip ]               -> logs job as ignored, optionally
+                               remembers "never show this company again".
+  Also sends:
+    - One alert if a source goes down (see Source Health above).
+    - A weekly digest: jobs seen, applied, interviews booked,
+      best-performing source.
+
+Component 5: Playwright Auto-Apply Engine (/applier)
+  Spawns a headless Playwright browser instance.
+  Loads saved authentication cookies (storageState.json).
+  Auto-fills candidate fields (name, email, phone, portfolio
+  links), uploads the compiled PDF CV, injects generated screening
+  answers, and submits the form.
+  Unsupported-Form Fallback: if a form has a captcha or an
+  unrecognized layout, the engine stops safely, marks the job
+  "needs manual apply", and notifies the user with the PDF/draft
+  ready to go - it never guesses or force-submits.
+  Retry Queue: transient failures (timeouts, page errors) are
+  retried with backoff before falling back to manual.
+
+Component 6: Dashboard & Control Panel (/dashboard)
+  A lightweight local web interface (Streamlit or FastAPI)
+  connected to the SQLite database.
+  First-Run Setup Wizard: walks a new user through entering their
+  master profile basics, connecting Telegram, and choosing which
+  job sources to enable - no manual JSON editing required.
+  Job Review Queue: approve, skip, or snooze jobs from the browser
+  as an alternative to Telegram.
+  Profile & Blacklist Editor: form-based editing of
+  master_profile.json and blacklist.json with validation, instead
+  of raw file editing.
+  Metrics Tracked: total jobs scraped, applied, interviews
+  scheduled, and success rate per platform, plus response-rate
+  trends over time.
+  Calendar Sync: integrates with Google Calendar API to block out
+  interview invites detected in email.
+
+=================================================================
+4. Comprehensive Data Flow & Lifecycle
+=================================================================
+1. Ingestion          -> Each source adapter fetches new job posts
+                          on its own schedule/rate limit.
+2. Source Health Check -> If a source errors repeatedly, disable it
+                          and alert the user; otherwise continue.
+3. Blacklist Check     -> Filter drops post if company/keyword is
+                          blacklisted. If passed -> proceed.
+4. De-duplication      -> SQLite checks job_id and a fuzzy
+                          title+company match to catch reposts.
+5. Claude Processing   -> Invokes Claude CLI to:
+                          - Compute fit score + reason.
+                          - Choose the closest CV profile.
+                          - Re-tailor Master CV -> cv_job_id.md.
+                          - Write cover letter draft.
+                          - Generate answers for screening questions.
+6. PDF Compilation     -> Compiles cv_job_id.md into cv_job_id.pdf.
+7. Push Alert          -> Telegram bot (and dashboard) show the
+                          alert, draft, fit reason, and PDF.
+8. User Action         -> User taps Auto-Apply / Get PDF Only /
+                          Snooze / Skip (Telegram or dashboard).
+9. Headless Apply      -> Playwright fills the web form, attaches
+                          the PDF, submits, or falls back to manual
+                          if the form isn't supported.
+10. DB & Dashboard     -> Updates status ("Applied", "Manual Needed",
+                          "Skipped") and refreshes analytics.
+11. Weekly Digest      -> Summary sent every Sunday via Telegram.
+
+=================================================================
+5. Updated Project Directory & Module Plan
+=================================================================
+freelance-job-agent/
+├── config/
+│   ├── settings.json            # Ingestion rates, APIs, and limits
+│   ├── blacklist.json           # Excluded keywords, agencies, companies
+│   └── sources.json             # Enabled sources + per-source config
+│                                 #   (RSS/API URLs, credentials refs)
+├── data/
+│   ├── master_profile.json      # Immutable user background & skills
+│   ├── cv_profiles/             # Named CV variants (backend.json,
+│   │                             #   fullstack.json, freelance.json)
+│   └── app_database.db          # SQLite DB tracking job statuses
+├── src/
+│   ├── ingestion/
+│   │   ├── base.py              # Common adapter interface
+│   │   ├── linkedin.py
+│   │   ├── weworkremotely.py
+│   │   ├── remoteok.py
+│   │   ├── wellfound.py
+│   │   ├── hn_whos_hiring.py
+│   │   ├── ats_boards.py        # Greenhouse/Lever/Workday
+│   │   ├── rss_generic.py       # Config-driven RSS/API connector
+│   │   └── health.py            # Per-source rate limiting & alerts
+│   ├── intelligence/            # Claude CLI wrapper, CV profile
+│   │                             #   selection, screening answers
+│   ├── compiler/                # Typst/Pandoc PDF builder
+│   ├── notifier/                # Telegram bot controller + digest
+│   ├── applier/                 # Playwright web automation scripts
+│   ├── dashboard/                # Streamlit control panel + setup wizard
+│   └── setup_wizard/            # First-run onboarding CLI/web flow
+├── templates/
+│   └── resume_template.typ      # Typst template for PDF layout
+└── main.py                      # Core orchestrator loop
+
+=================================================================
+6. Suggested Build Order (for an MVP -> full system)
+=================================================================
+1. Core data model + SQLite schema + master_profile.json.
+2. One ingestion adapter (e.g. We Work Remotely, simplest API) end
+   to end through Telegram alert, no auto-apply yet.
+3. Claude intelligence step (fit score + CV tailoring + PDF).
+4. Add remaining ingestion adapters behind the common interface.
+5. Setup Wizard + Dashboard control panel.
+6. Playwright auto-apply engine with manual-fallback handling.
+7. Analytics, weekly digest, Google Calendar sync.
