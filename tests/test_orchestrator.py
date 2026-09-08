@@ -75,7 +75,7 @@ def test_drops_job_failing_keyword_filter(db_conn):
 def test_drops_fuzzy_duplicate_from_other_source(db_conn):
     notifier = FakeNotifier()
     process_job(db_conn, make_job(source_job_id="5"), BLACKLIST, PROFILE, notifier)
-    duplicate = make_job(source="remoteok", source_job_id="6", title="Python Engineer, Remote")
+    duplicate = make_job(source="remoteok", source_job_id="6", title="Engineer, Python")
     outcome = process_job(db_conn, duplicate, BLACKLIST, PROFILE, notifier)
     assert outcome == "fuzzy_duplicate"
     assert len(notifier.alerts) == 1

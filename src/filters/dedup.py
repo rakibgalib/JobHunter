@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from rapidfuzz import fuzz
 from src.ingestion.models import JobPosting
 
-SIMILARITY_THRESHOLD = 80
+SIMILARITY_THRESHOLD = 90
 LOOKBACK_DAYS = 14
 
 
