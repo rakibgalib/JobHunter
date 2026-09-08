@@ -26,3 +26,21 @@ def test_fetch_defaults_unknown_job_type_to_unknown():
     adapter = RemotiveAdapter(api_url=API_URL)
     postings = adapter.fetch()
     assert postings[0].employment_type == "unknown"
+
+
+@responses.activate
+def test_fetch_freelance_maps_to_contract():
+    fixture = {"jobs": [dict(FIXTURE["jobs"][0], job_type="freelance")]}
+    responses.add(responses.GET, API_URL, json=fixture, status=200)
+    adapter = RemotiveAdapter(api_url=API_URL)
+    postings = adapter.fetch()
+    assert postings[0].employment_type == "contract"
+
+
+@responses.activate
+def test_fetch_contract_maps_to_contract():
+    fixture = {"jobs": [dict(FIXTURE["jobs"][0], job_type="contract")]}
+    responses.add(responses.GET, API_URL, json=fixture, status=200)
+    adapter = RemotiveAdapter(api_url=API_URL)
+    postings = adapter.fetch()
+    assert postings[0].employment_type == "contract"
