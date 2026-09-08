@@ -1,5 +1,5 @@
 import sqlite3
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from rapidfuzz import fuzz
 from src.ingestion.models import JobPosting
 
@@ -8,7 +8,7 @@ LOOKBACK_DAYS = 14
 
 
 def is_duplicate(conn: sqlite3.Connection, job: JobPosting) -> bool:
-    cutoff = (datetime.utcnow() - timedelta(days=LOOKBACK_DAYS)).isoformat()
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=LOOKBACK_DAYS)).isoformat()
     rows = conn.execute(
         "SELECT title, company FROM jobs WHERE fetched_at >= ?", (cutoff,)
     ).fetchall()

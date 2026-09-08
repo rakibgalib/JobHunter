@@ -1,11 +1,11 @@
 import sqlite3
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 FAILURE_THRESHOLD = 5
 
 
 def record_success(conn: sqlite3.Connection, source: str) -> None:
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(timezone.utc).isoformat()
     conn.execute(
         """INSERT INTO source_health (source, consecutive_failures, last_success_at, disabled)
            VALUES (?, 0, ?, 0)
@@ -18,7 +18,7 @@ def record_success(conn: sqlite3.Connection, source: str) -> None:
 
 
 def record_failure(conn: sqlite3.Connection, source: str) -> bool:
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(timezone.utc).isoformat()
     row = conn.execute(
         "SELECT consecutive_failures, disabled FROM source_health WHERE source = ?", (source,)
     ).fetchone()
@@ -67,5 +67,5 @@ def should_poll(conn: sqlite3.Connection, source: str, poll_interval_minutes: in
     if not timestamps:
         return True
     last = max(timestamps)
-    elapsed = datetime.utcnow() - datetime.fromisoformat(last)
+    elapsed = datetime.now(timezone.utc) - datetime.fromisoformat(last)
     return elapsed >= timedelta(minutes=poll_interval_minutes)
