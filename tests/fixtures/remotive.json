@@ -1,0 +1,26 @@
+{
+  "jobs": [
+    {
+      "id": 3001,
+      "title": "Full Stack Engineer",
+      "company_name": "Acme Corp",
+      "url": "https://remotive.com/remote-jobs/3001",
+      "candidate_required_location": "Worldwide",
+      "job_type": "full_time",
+      "description": "Django and React.",
+      "salary": "",
+      "publication_date": "2026-09-01T00:00:00Z"
+    },
+    {
+      "id": 3002,
+      "title": "Part-Time Designer",
+      "company_name": "Globex",
+      "url": "https://remotive.com/remote-jobs/3002",
+      "candidate_required_location": "US Only",
+      "job_type": "part_time",
+      "description": "Figma design work.",
+      "salary": "",
+      "publication_date": "2026-09-02T00:00:00Z"
+    }
+  ]
+}
