@@ -1,0 +1,13 @@
+[
+  {"legal": "Please crawl responsibly"},
+  {
+    "id": "2001",
+    "position": "Backend Engineer",
+    "company": "Acme Corp",
+    "url": "https://remoteok.com/remote-jobs/2001",
+    "location": "Worldwide",
+    "description": "Python backend role.",
+    "salary": "$80k - $110k",
+    "date": "2026-09-01T00:00:00"
+  }
+]
