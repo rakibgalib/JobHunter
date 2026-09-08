@@ -33,7 +33,7 @@ def load_json(path: str) -> dict:
 
 
 def run_cycle(conn, sources_config: dict, blacklist: dict, profile: dict, notifier,
-              adapter_classes: dict = DEFAULT_ADAPTER_CLASSES) -> dict:
+              adapter_classes: dict = DEFAULT_ADAPTER_CLASSES, callback_offset=None) -> tuple:
     results = {}
     for source, cfg in sources_config.items():
         if not cfg.get("enabled", False):
@@ -63,14 +63,14 @@ def run_cycle(conn, sources_config: dict, blacklist: dict, profile: dict, notifi
 
     resurface_snoozed(conn, notifier)
 
-    offset = None
+    offset = callback_offset
     for update in notifier.get_callback_updates(offset):
         callback = update.get("callback_query")
         if callback:
             apply_callback(conn, callback["data"])
             offset = update["update_id"] + 1
 
-    return results
+    return results, offset
 
 
 def main():
@@ -85,8 +85,9 @@ def main():
         chat_id=os.environ["TELEGRAM_CHAT_ID"],
     )
 
+    offset = None
     while True:
-        run_cycle(conn, sources_config, blacklist, profile, notifier)
+        _, offset = run_cycle(conn, sources_config, blacklist, profile, notifier, callback_offset=offset)
         time.sleep(60)
 
 
